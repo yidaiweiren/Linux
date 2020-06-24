@@ -1,0 +1,71 @@
+﻿#git 基本使用
+ssh-keygen -t rsa -C "xxx@xxx.com"
+ssh -T git@github.com
+git init
+git config --global user.name ""
+git config --global user.email ""
+git config --list
+git branch
+git branch -d
+git checkout
+git merge
+git add  文件名  # 撤销add   git reset HEAD <filename>  #撤销修改      git checkout fileName
+git commit -m ""
+git remote
+git remote add origin  http://github.com/xxxxx
+git remote rm <主机名>
+git fetch <远程主机名>
+
+git check-ignore -v   xxx   	#检查文件是否匹配ignore规则
+
+git tag  #列出现有标签
+git tag -a 标签名 -m "附注信息"  #创建一个含附注类型的标签  -a 改为 -s 签署标签
+git push 标签名
+git status
+<<<<<<< HEAD
+A: 你本地新增的文件（服务器上没有）.
+C: 文件的一个新拷贝.
+D: 你本地删除的文件（服务器上还在）.
+M: 文件的内容或者mode被修改了.
+R: 文件名被修改了。
+T: 文件的类型被修改了。
+U: 文件没有被合并(你需要完成合并才能进行提交)。
+X: 未知状态(很可能是遇到git的bug了，你可以向git提交bug report)。
+commit
+=================================================
+>>>>>>> 3abb37d346cf2a0d0cba1d2118af1330dc011d5a
+git diff
+git log
+git pull <远程主机名> <远程分支名>:<本地分支名>  #拉取
+git push <远程主机名> <本地分支名>:<远程分支名>  #代码推送 默认	不传标签 git push origin [tagname] --tags推送所有标签	
+git clone http://github.com/xxxxx
+
+#git clone 仓库内单个文件或者目录
+git init xxx &&cd xxx //初始化一个目录
+git config core.sparsecheckout true  //设置允许克隆子目录
+
+echo '需要克隆的路径' >> .git/info/sparse-checkout  //设置要克隆的仓库的子目录路径 //空格别漏
+
+git remote add origin git@github.com:名/仓库名.git  //换成你要克隆的项目git地址和仓库
+
+git pull origin master //下载
+==========================================
+#版本回滚
+git log
+git reset	--hard   需要回滚版本号
+强制提交 git push -f origin master  #本地版本比仓库版本旧 需要强制提交    
+git reset #可以生成新的旧版本 保留后面的版本
+使用“git revert -n 版本号”反做，并使用“git commit -m 版本名”提交：#注意： 这里可能会出现冲突，那么需要手动修改冲突的文件。而且要git add 文件名。
+==========================================
+git cherry-pick <commit id>      #稳定版本V2，开发版本V3，只在V2中增加V3个某个功能。
+
+
+
+免密验证！
+1. url = http://user:password@xxxx.com/expand/xxxx.git
+2. 配置私钥
+3. 免密码设置  git config --global credential.helper store
+   修改了git密码执行：git config --global user.passwd "your_password"     #会在家目录生成.git-credentials文件
+
+
+指定目录更新  git --git-dir=/xxxx/.git pull    --work-tree=/xxxx/xxxx   --git-dir 传入的是.git  --work-tree 工作目录

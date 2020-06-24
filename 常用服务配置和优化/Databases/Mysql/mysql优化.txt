@@ -1,0 +1,157 @@
+开启慢查询的方法
+1) 在配置文件中加入    配置完毕需要重启
+log_slow_queries = ON
+log-slow-queries = /var/lib/mysql/slow.log    #日志目录
+long_query_time = 1                          #记录下查询时间查过1秒
+log-queries-not-using-indexes -- 表示记录没有使用索引的查询
+
+
+2)	在mysql中
+mysql> show variables like 'long_query_time'; -- 默认情况下，mysql认为10秒才是一个慢查询
+
+mysql> set long_query_time=1; -- 修改慢查询时间,只能当前会话有效;
+mysql> set global slow_query_log='ON';-- 启用慢查询 ,加上global，不然会报错的;
+
+
+一、慢查询
+
+mysql> show global status;
+
+可以列出MySQL服务器运行各种状态值，另外，查询MySQL服务器配置信息语句：
+
+
+mysql> show variables;
+
+
+
+
+
+show status -- 显示全部mysql操作信息
+
+show status like "com_insert%"; -- 获得mysql的插入次数;
+
+show status like "com_delete%"; -- 获得mysql的删除次数;
+
+show status like "com_select%"; -- 获得mysql的查询次数;
+
+show status like "uptime"; -- 获得mysql服务器运行时间
+
+show status like 'connections'; -- 获得mysql连接次数
+
+
+mysql> show variables like '%slow%';
+
++---------------------------+-------------------------+
+| Variable_name             | Value                   |
++---------------------------+-------------------------+
+| log_slow_admin_statements | OFF                     |
+| log_slow_slave_statements | OFF                     |
+| slow_launch_time          | 2                       |
+| slow_query_log            | ON                      |
+| slow_query_log_file       | /var/lib/mysql/slow.log |
++---------------------------+-------------------------+
+
+mysql> show global status like '%slow%';
++---------------------+---------+
+| Variable_name       | Value   |
++---------------------+---------+
+| Slow_launch_threads | 0       |
+| Slow_queries        | 2012770 |
++---------------------+---------+
+2 rows in set (0.00 sec)
+
+
+二：分析慢查询日志
+
+1. 截取一段慢查询日志：
+
+
+# Time: 2019-04-22T01:53:04.194728Z
+# User@Host: root[root] @ localhost [127.0.0.1]  Id: 2670981
+# Query_time: 1.180297  Lock_time: 0.000031 Rows_sent: 1  Rows_examined: 1493332
+SET timestamp=1163760384;
+SELECT COUNT(*) AS tp_count FROM `bz_users` WHERE  `wechat_id` = 'oMPWQ53wKVh3xxxxxxxxx' LIMIT 1;
+# Time: 2019-04-22T01:53:04.200341Z
+# User@Host: root[root] @ localhost [127.0.0.1]  Id: 2670975
+# Query_time: 1.190742  Lock_time: 0.000033 Rows_sent: 1  Rows_examined: 1493332
+SET timestamp=1163760384;
+SELECT COUNT(*) AS tp_count FROM `bz_users` WHERE  `wechat_id` = 'oMPWQ50vDtxxxxxxxxxxxxx' LIMIT 1;
+
+
+Query_time (慢查询语句的查询时间)  都超过了设置的 1s,
+
+Rows_sent (慢查询返回记录) 这里只返回了 1 条
+
+Rows_examined （慢查询扫描过的行数）  1493332    ->     通过这里大概可以看出问题很大
+
+
+
+2.将这个SQL语句放到数据库去执行，并使用EXPLAIN分析 看下执行计划。
+
+explain用法
+
+EXPLAIN tbl_name或：EXPLAIN [EXTENDED] SELECT select_options
+
+EXPLAIN SELECT COUNT(*) AS tp_count FROM `bz_users` WHERE  `wechat_id` = 'oMPWQ50vDtxxxxxxxxxxxxx' LIMIT 1\G
+
+
+*************************** 1. row ***************************
+           id: 1
+  select_type: SIMPLE
+        table: bz_users
+   partitions: NULL
+         type: ALL
+possible_keys: NULL
+          key: NULL
+      key_len: NULL
+          ref: NULL
+         rows: 1376804
+     filtered: 10.00
+        Extra: Using where
+1 row in set, 1 warning (0.00 sec)
+
+从左至右，性能由差到好
+
+ALL: 扫描全表
+
+index: 扫描全部索引树
+
+range: 扫描部分索引，索引范围扫描，对索引的扫描开始于某一点，返回匹配值域的行，常见于between、<、>等的查询
+
+ref: 使用非唯一索引或非唯一索引前缀进行的查找
+
+（eq_ref和const的区别：）
+eq_ref：唯一性索引扫描，对于每个索引键，表中只有一条记录与之匹配。常见于主键或唯一索引扫描
+
+const, system: 单表中最多有一个匹配行，查询起来非常迅速，例如根据主键或唯一索引查询。system是const类型的特例，当查询的表只有一行的情况下， 使用system。
+
+NULL: 不用访问表或者索引，直接就能得到结果，如select 1 from test where 1
+
+possible_keys: 表示查询时可能使用的索引。如果是空的，没有相关的索引。这时要提高性能，可通过检验WHERE子句，看是否引用某些字段，或者检查字段不是适合索引
+
+key: 显示MySQL实际决定使用的索引。如果没有索引被选择，是NULL
+
+key_len: 使用到索引字段的长度
+
+注：key_len显示的值为索引字段的最大可能长度，并非实际使用长度，即key_len是根据表定义计算而得，不是通过表内检索出的。
+
+ref: 显示哪个字段或常数与key一起被使用
+
+rows: 这个数表示mysql要遍历多少数据才能找到，表示MySQL根据表统计信息及索引选用情况，估算的找到所需的记录所需要读取的行数，在innodb上可能是不准确的
+
+Extra: 执行情况的说明和描述。包含不适合在其他列中显示但十分重要的额外信息
+
+
+
+
+
+mysqldumpslow -s r -t 10 /slowquery.log #slow记录最多的10个语句
+
+推荐用分析日志工具 – mysqlsla
+
+wget http://hackmysql.com/scripts/mysqlsla-2.03.tar.gz
+
+
+
+
+select count(1)  or select count(*) ?
